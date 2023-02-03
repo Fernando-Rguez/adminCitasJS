@@ -1,8 +1,12 @@
-import { eliminarCita, cargarEdicion } from '../funciones.js';
+import { eliminarCita, cargarEdicion, DB } from '../funciones.js';
 
-import { contenedorCitas} from '../selectores.js';
+import { contenedorCitas, heading} from '../selectores.js';
 
 class UI {
+
+    constructor({ citas }) {
+        this.textoHeading(citas);
+    }
 
     imprimirAlerta(mensaje, tipo ) {
         //crear div
@@ -32,13 +36,33 @@ class UI {
         }, 5000 );
     }
 
-    imprimirCitas({citas}){
+    // imprimirCitas({citas}){
+    imprimirCitas(){
+
 
         this.limpiarHtml();
 
-        citas.forEach(cita => {
-            const { mascota, propietario, telefono, fecha, hora, sintomas, id } = cita;
-        
+        // citas.forEach(cita => {
+        //     const { mascota, propietario, telefono, fecha, hora, sintomas, id } = cita;
+        //leemos el contenido de la base de datos
+        const objectStore = DB.transaction('citas').objectStore('citas');
+
+        //accedemos a los valores que podemos acceder, esto para poder mostrar el mensaje del heading
+        const total = objectStore.count();
+
+        //por razones del scope tendremos que asignar la funcion textHeading a una variable
+        const mostrarHeading = this.textoHeading;
+
+        //para acceder unicamente a la cantidad de datos que contiene la base de datos
+        total.onsuccess = function () {
+            mostrarHeading(total.result);
+        }
+        //Aquí accederemos a las filas de le base de datos y sera con openCursor
+        objectStore.openCursor().onsuccess = function (e) {
+            const cursor = e.target.result; //trae los valores que hay en la base de datos
+            //si existen valores en l abase de datos entonces mostraremos en la pantalla
+            if (cursor) {
+                const { mascota, propietario, telefono, fecha, hora, sintomas, id } = cursor.value;
             const divCita = document.createElement('div');
             divCita.classList.add('cita', 'p-3');
             divCita.dataset.id = id;
@@ -81,6 +105,10 @@ class UI {
 
             //Añade un botón para editar
             const btnEditar = document.createElement('button');
+
+            const cita = cursor.value;
+            btnEditar.onclick = () => cargarEdicion(cita);
+
             btnEditar.classList.add('btn', 'btn-info');
             btnEditar.innerHTML = 'Editar <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg>'
 
@@ -97,9 +125,20 @@ class UI {
 
             //Agregar las citas al HTML
             contenedorCitas.appendChild(divCita);
-        });
+        
+            //Para avanzar a la siguiente fila y de esta manera mostrar todas las filas
+            cursor.continue();
+        }
     }
+}
 
+textoHeading(resultado) {
+    if (resultado > 0) {
+        heading.textContent = 'Administra tus Citas '
+    } else {
+        heading.textContent = 'No hay Citas, comienza creando una'
+    }
+}
     limpiarHtml(){
         while(contenedorCitas.firstChild){
             contenedorCitas.removeChild( contenedorCitas.firstChild);
